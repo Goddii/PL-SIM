@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Run-In Simulator</title>
+<style>
+  :root{
+    --pitch-dark:#0b1f17;
+    --line:#e8e3d3;
+    --chalk:#f4f1e6;
+    --gold:#c9a24b;
+    --red:#b3432f;
+    --green:#3d7a52;
+    --muted:#8aa392;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--pitch-dark);
+    background-image:repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 40px, transparent 40px, transparent 80px);
+    color:var(--chalk);
+    font-family:Georgia, 'Times New Roman', serif;
+    min-height:100vh;
+    padding:32px 16px 80px;
+  }
+  .wrap{max-width:920px;margin:0 auto;}
+  h1{font-size:clamp(26px,4vw,38px);margin:0 0 4px;border-bottom:3px solid var(--gold);padding-bottom:14px;}
+  .sub{color:var(--muted);font-size:13px;font-family:'Helvetica Neue',Arial,sans-serif;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:24px;}
+  .panel{background:rgba(244,241,230,0.04);border:1px solid rgba(244,241,230,0.15);border-radius:6px;padding:18px 22px;margin-bottom:22px;}
+  .note{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12.5px;color:var(--muted);line-height:1.6;}
+  .controls{display:flex;gap:20px;align-items:center;flex-wrap:wrap;font-family:'Helvetica Neue',Arial,sans-serif;margin-top:14px;}
+  .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px;}
+  .field input[type=range]{width:160px;accent-color:var(--gold);}
+  .val{color:var(--gold);font-weight:bold;margin-left:8px;}
+  button{background:var(--gold);color:#1a1206;border:none;padding:11px 20px;font-family:'Helvetica Neue',Arial,sans-serif;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;font-size:12.5px;border-radius:4px;cursor:pointer;}
+  button:hover{background:#dcb45c;}
+  button:disabled{opacity:0.45;cursor:default;}
+  .status{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12.5px;color:var(--gold);margin-top:12px;min-height:16px;}
+
+  .gw-nav{display:flex;align-items:center;gap:14px;margin-bottom:16px;font-family:'Helvetica Neue',Arial,sans-serif;}
+  .gw-nav button{padding:7px 14px;font-size:11px;}
+  .gw-title{font-family:Georgia,serif;font-size:18px;letter-spacing:0.5px;color:var(--gold);min-width:160px;text-align:center;}
+
+  .fixtures{display:grid;grid-template-columns:1fr;gap:6px;}
+  .fixture{
+    display:grid;grid-template-columns:1fr 56px 1fr;
+    align-items:center;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    padding:10px 14px;background:rgba(244,241,230,0.03);border-radius:4px;border:1px solid rgba(244,241,230,0.07);
+  }
+  .fixture .home{text-align:right;font-weight:700;}
+  .fixture .away{text-align:left;font-weight:700;}
+  .fixture .score{text-align:center;font-variant-numeric:tabular-nums;font-size:15px;color:var(--gold);font-weight:700;letter-spacing:1px;}
+
+  table{width:100%;border-collapse:collapse;font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;margin-top:18px;}
+  thead th{text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:7px 9px;border-bottom:2px solid var(--gold);}
+  tbody td{padding:7px 9px;border-bottom:1px solid rgba(244,241,230,0.08);}
+  .pos{font-weight:700;color:var(--gold);width:24px;}
+  .club{font-weight:700;}
+  .num{text-align:right;font-variant-numeric:tabular-nums;}
+  .ucl td{box-shadow:inset 3px 0 0 0 var(--green);}
+  .rel td{box-shadow:inset 3px 0 0 0 var(--red);}
+  .legend{display:flex;gap:18px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:var(--muted);margin-top:8px;}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Full Season Simulator</h1>
+  <div class="sub">38 gameweeks, from scratch · Poisson goal model · synthetic double round-robin</div>
+
+  <div class="panel">
+    <div class="note">
+      No real fixture list was supplied, so the schedule is synthetic: a standard double round-robin for the 20 clubs (everyone plays everyone home and away once, 38 gameweeks total, 10 matches per week). The whole season is simulated from 0 points — current standings are used only to estimate each club's underlying attack and defense strength (goals scored/conceded per game), which drive the Poisson goal model for every match. This is not the real fixture list, and the simulated table will diverge from the actual current table since it's an entirely fresh random season built on the same underlying team strengths.
+    </div>
+    <div class="controls">
+      <div class="field">
+        <label>Home advantage</label>
+        <input id="home" type="range" min="0" max="40" step="2" value="18">
+        <span class="val" id="homeVal">+18%</span>
+      </div>
+      <button id="runBtn">Simulate 38-game season</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel" id="fixturesPanel" style="display:none;">
+    <div class="gw-nav">
+      <button id="prevBtn">&larr; Prev</button>
+      <div class="gw-title" id="gwTitle">Gameweek 1</div>
+      <button id="nextBtn">Next &rarr;</button>
+    </div>
+    <div class="fixtures" id="fixturesList"></div>
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead><tr><th>Pos</th><th>Club</th><th class="num">W</th><th class="num">D</th><th class="num">L</th><th class="num">GF</th><th class="num">GA</th><th class="num">GD</th><th class="num">Pts</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--green)"></span>Top 5 (European spots)</span>
+      <span><span class="dot" style="background:var(--red)"></span>Bottom 3 (relegation)</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const RAW = [
+['AST',46,14,4,5,52,29],['MCI',40,11,7,5,42,33],['BHA',39,11,6,6,41,36],
+['NEW',38,11,5,7,41,36],['NOT',37,11,4,8,48,41],['ARS',37,11,4,8,37,30],
+['BOU',37,10,7,6,35,29],['CHE',35,10,5,8,43,35],['BRE',35,10,5,8,27,26],
+['TOT',32,8,8,7,44,31],['LIV',31,9,4,10,45,40],['EVE',31,8,7,8,30,33],
+['WOL',30,8,6,9,29,37],['CRY',29,8,5,10,35,35],['FUL',28,8,4,11,37,42],
+['BUR',27,8,3,12,27,43],['WHU',24,6,6,11,36,44],['LEE',23,6,5,12,21,46],
+['SUN',20,5,5,13,28,43],['MUN',19,5,4,14,37,46]
+];
+
+let teams = RAW.map(r=>{
+  const [club,pts,w,d,l,gf,ga]=r;
+  const played=w+d+l;
+  return {club,pts,w,d,l,played,gf,ga,gd:gf-ga,attack:gf/played,defense:ga/played};
+});
+const leagueAvgGF = teams.reduce((s,t)=>s+t.gf,0)/teams.reduce((s,t)=>s+t.played,0);
+const clubOrder = teams.map(t=>t.club);
+
+function circleMethod(n){
+  let idx=[...Array(n).keys()];
+  let rounds=[];
+  for(let r=0;r<n-1;r++){
+    let round=[];
+    for(let i=0;i<n/2;i++) round.push([idx[i], idx[n-1-i]]);
+    rounds.push(round);
+    idx.splice(1,0,idx.pop());
+  }
+  return rounds;
+}
+const half1 = circleMethod(20);
+const half2 = half1.map(round => round.map(([h,a])=>[a,h])); // reverse venues
+const fullSeasonGWs = half1.concat(half2); // 38 synthetic gameweeks = the whole season
+
+function poissonSample(lambda){
+  const L=Math.exp(-lambda);
+  let k=0,p=1;
+  do{k++;p*=Math.random();}while(p>L);
+  return k-1;
+}
+
+function simulateMatch(clubA, clubB, homeBoostPct, byClub){
+  const tA=byClub[clubA], tB=byClub[clubB];
+  const boost=1+homeBoostPct/100;
+  let lamA = leagueAvgGF*(tA.attack/leagueAvgGF)*(tB.defense/leagueAvgGF)*boost;
+  let lamB = leagueAvgGF*(tB.attack/leagueAvgGF)*(tA.defense/leagueAvgGF);
+  lamA=Math.max(0.15,lamA); lamB=Math.max(0.15,lamB);
+  return [poissonSample(lamA), poissonSample(lamB)];
+}
+
+let lastResults = null; // {gws: [[{home,away,gh,ga}],...], finalTable: [...]}
+
+function runFullSimulation(){
+  const homeBoost = parseInt(document.getElementById('home').value,10);
+  const byClub = {};
+  teams.forEach(t=>{
+    byClub[t.club] = {
+      club:t.club, pts:0, w:0, d:0, l:0,
+      gf:0, ga:0, gd:0,
+      attack:t.attack, defense:t.defense // underlying strength stays fixed, drawn from current rates
+    };
+  });
+  const gwResults = [];
+
+  fullSeasonGWs.forEach(round=>{
+    const matches=[];
+    round.forEach(([hIdx,aIdx])=>{
+      const home=clubOrder[hIdx], away=clubOrder[aIdx];
+      const [gh,ga] = simulateMatch(home, away, homeBoost, byClub);
+      matches.push({home,away,gh,ga});
+      const H=byClub[home], A=byClub[away];
+      H.gf+=gh; H.ga+=ga; A.gf+=ga; A.ga+=gh;
+      H.gd=H.gf-H.ga; A.gd=A.gf-A.ga;
+      if(gh>ga){ H.pts+=3; H.w++; A.l++; }
+      else if(ga>gh){ A.pts+=3; A.w++; H.l++; }
+      else { H.pts+=1; A.pts+=1; H.d++; A.d++; }
+    });
+    gwResults.push(matches);
+  });
+
+  const finalTable = Object.values(byClub).sort((a,b)=> b.pts-a.pts || b.gd-a.gd);
+  lastResults = {gwResults, finalTable};
+  return lastResults;
+}
+
+let currentGW = 0;
+
+function renderGW(){
+  const titleEl = document.getElementById('gwTitle');
+  const listEl = document.getElementById('fixturesList');
+  titleEl.textContent = `Gameweek ${currentGW+1} of ${lastResults.gwResults.length}`;
+  listEl.innerHTML='';
+  lastResults.gwResults[currentGW].forEach(m=>{
+    const div=document.createElement('div');
+    div.className='fixture';
+    div.innerHTML = `<div class="home">${m.home}</div><div class="score">${m.gh} – ${m.ga}</div><div class="away">${m.away}</div>`;
+    listEl.appendChild(div);
+  });
+  document.getElementById('prevBtn').disabled = currentGW===0;
+  document.getElementById('nextBtn').disabled = currentGW===lastResults.gwResults.length-1;
+}
+
+function renderFinalTable(){
+  const rows=document.getElementById('rows');
+  rows.innerHTML='';
+  lastResults.finalTable.forEach((t,i)=>{
+    const tr=document.createElement('tr');
+    if(i<5) tr.classList.add('ucl');
+    if(i>=17) tr.classList.add('rel');
+    tr.innerHTML = `<td class="pos">${i+1}</td><td class="club">${t.club}</td>
+      <td class="num">${t.w}</td><td class="num">${t.d}</td><td class="num">${t.l}</td>
+      <td class="num">${t.gf}</td><td class="num">${t.ga}</td>
+      <td class="num">${t.gd>0?'+':''}${t.gd}</td><td class="num">${t.pts}</td>`;
+    rows.appendChild(tr);
+  });
+}
+
+document.getElementById('runBtn').addEventListener('click', ()=>{
+  const statusEl=document.getElementById('status');
+  statusEl.textContent='Simulating run-in...';
+  setTimeout(()=>{
+    runFullSimulation();
+    currentGW=0;
+    document.getElementById('fixturesPanel').style.display='block';
+    renderGW();
+    renderFinalTable();
+    statusEl.textContent = `Simulated ${lastResults.gwResults.length} gameweeks.`;
+  }, 30);
+});
+document.getElementById('prevBtn').addEventListener('click', ()=>{ if(currentGW>0){currentGW--; renderGW();} });
+document.getElementById('nextBtn').addEventListener('click', ()=>{ if(currentGW<lastResults.gwResults.length-1){currentGW++; renderGW();} });
+document.getElementById('home').addEventListener('input', e=>{ document.getElementById('homeVal').textContent='+'+e.target.value+'%'; });
+
+// initial placeholder (pre-simulation) — ranked by underlying strength estimate only
+(function initial(){
+  const rows=document.getElementById('rows');
+  const sorted=[...teams].sort((a,b)=> (b.attack-b.defense) - (a.attack-a.defense));
+  sorted.forEach((t)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td class="pos">—</td><td class="club">${t.club}</td>
+      <td class="num">—</td><td class="num">—</td><td class="num">—</td>
+      <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>`;
+    rows.appendChild(tr);
+  });
+})();
+</script>
+</body>
+</html>
