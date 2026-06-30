@@ -87,5 +87,4 @@ For a given match between a home club and an away club:
 ## Files
 
 - `pl-runin-sim.html` — the simulator itself (open this).
-- `CODE-WALKTHROUGH.md` — line-by-line explanation of why each part of the
-  code exists.
+
